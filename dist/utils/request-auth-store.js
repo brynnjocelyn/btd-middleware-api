@@ -1,11 +1,8 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.RequestAuthStore = void 0;
-const pocketbase_1 = require("pocketbase");
+import { BaseAuthStore } from "pocketbase";
 // Custom AuthStore that does not share state
-class RequestAuthStore extends pocketbase_1.BaseAuthStore {
+export class RequestAuthStore extends BaseAuthStore {
     constructor() {
+        console.log("RequestAuthStore created");
         super();
     }
 }
-exports.RequestAuthStore = RequestAuthStore;

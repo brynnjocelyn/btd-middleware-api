@@ -8,17 +8,32 @@ import dotenv from "dotenv";
 
 import PocketBase from "pocketbase";
 
-import indexRouter from "./routes/index";
-import usersRouter from "./routes/users";
-import chatRouter from "./routes/chats";
-import { createPocketBaseClient } from "./utils/create-pb-client";
+import indexRouter from "./routes/index.js";
+import usersRouter from "./routes/users.js";
+import chatRouter from "./routes/chats.js";
+import { createPocketBaseClient } from "./utils/create-pb-client.js";
+import { fileURLToPath } from "url";
 
 dotenv.config();
 
 const app = express();
-app.use(cors());
+app.use(
+  cors({
+    credentials: true,
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "Access-Control-Allow-Origin",
+      "Origin",
+      "X-Requested-With",
+      "Content-Type",
+      "Accept",
+    ],
+    origin: "http://localhost:4200",
+  }),
+);
 app.use(express.json());
-
+app.options("*", cors());
 const PB_URL = process.env.PB_URL || "http://10.27.27.152:8080";
 
 // Extend Express Request to include user property
@@ -33,9 +48,18 @@ declare global {
 
 // Authentication Middleware
 app.use(async (req: Request, res: Response, next: NextFunction) => {
+  console.log("Authenticating user attempt...");
   // Grab the token from the request header
+  console.log(
+    "Request headers:",
+    "Look for Authorization header => ",
+    req.headers,
+  );
   const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1]; // 'Bearer <token>'
+  const token =
+    authHeader && authHeader.split(" ")[1]
+      ? authHeader.split(" ")[1]
+      : authHeader; // 'Bearer <token>'
 
   if (!token) {
     return res
@@ -43,16 +67,22 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
       .json({ error: "Access token is missing or invalid" });
   }
 
+  console.log("Authenticating user with token:", token);
   try {
     // Create a per-request PocketBase client instance with the user's token
     const pb = createPocketBaseClient(token, PB_URL);
+    console.log("PocketBase client instance:", pb);
 
     // Verify the token with the PocketBase client
-    await pb.collection("users").authRefresh();
+    console.log("Verifying token...");
+    const authData = await pb.collection("users").authRefresh();
+    console.log("Auth data:", authData);
 
     // Attach the PocketBase client and the user data to the request
     req.pb = pb;
     req.user = pb.authStore.model;
+
+    console.log("User authenticated:", req.user);
 
     next();
   } catch (err) {
@@ -60,6 +90,9 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
+// eslint-disable-next-line
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 // view engine setup
 app.set("views", path.join(__dirname, "views"));
 app.set("view engine", "jade");

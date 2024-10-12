@@ -4,8 +4,9 @@
  * Module dependencies.
  */
 
-import app from "../index";
-const debug = require("debug")("middleware:server");
+import app from "../index.js";
+import createDebug from "debug";
+const debug = createDebug("middleware:server");
 import http from "http";
 
 /**

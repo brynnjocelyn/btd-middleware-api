@@ -1,22 +1,8 @@
-"use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = __importDefault(require("express"));
-const router = express_1.default.Router();
-router.post("/initiate", (req, res, _next) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a;
-    const requestingUserId = (_a = req.user) === null || _a === void 0 ? void 0 : _a.id; // Get user id from request
+import express from "express";
+import { ClientResponseError } from "pocketbase";
+const router = express.Router();
+router.post("/initiate", async (req, res, _next) => {
+    const requestingUserId = req.user?.id; // Get user id from request
     const { targetUserId } = req.body;
     const pb = req.pb;
     if (!targetUserId || !requestingUserId) {
@@ -25,32 +11,109 @@ router.post("/initiate", (req, res, _next) => __awaiter(void 0, void 0, void 0, 
             .json({ error: "Both RequestingUserId && Target user id is required" });
     }
     try {
-        // Check if a chat already exists between the two users
-        const existingChats = yield pb.collection("chat").getFullList({
-            filter: `participants ?= '${requestingUserId}' && participants ?= '${targetUserId}'`,
-        });
-        let chat;
-        if (existingChats.length > 0) {
-            chat = existingChats[0];
-        }
-        else {
-            // Create a new chat record
-            chat = yield pb.collection("chat").create({
-                participants: [requestingUserId, targetUserId],
-            });
-        }
-        // Fetch messages associated with the chat
-        const messages = yield pb.collection("messages").getFullList({
-            filter: `chatId = '${chat.id}'`,
-            sort: "created",
-        });
-        res.status(200).json({ chat, messages });
+        handleChatExists({ requestingUserId, targetUserId, pb, res });
     }
     catch (error) {
-        console.error("Error initiating chat:", error);
+        console.log("Error instanceof ClientResponseError ????", error instanceof ClientResponseError);
+        if (error instanceof ClientResponseError &&
+            error.status === 404) {
+            try {
+                handle404({ requestingUserId, targetUserId, pb, res, error });
+            }
+            catch (error) {
+                // If an error occurs while creating the chat, return an error response
+                console.error("Error creating new chat:", error);
+                res.status(500).json({
+                    error: "An error occurred while creating the new chat.",
+                });
+            }
+        }
+    }
+    // } catch (error) {
+    //   let chat;
+    //   console.log(
+    //     "MADE IT TO THE CATCH BLOCK",
+    //     "Error instanceof ClientResponseError ????",
+    //     error instanceof ClientResponseError,
+    //   );
+    //   if (
+    //     error instanceof ClientResponseError &&
+    //     (error as ClientResponseError).status === 404
+    //   ) {
+    //     console.error("No existing chat found. Create new chat:", error);
+    //     chat = await pb.collection("chats").create({
+    //       participants: [requestingUserId, targetUserId],
+    //     });
+    //     // Fetch messages associated with the chat
+    //     const messages = await pb.collection("messages").getFullList({
+    //       filter: `chatId = '${chat.id}'`,
+    //       sort: "created",
+    //     });
+    //
+    //     res.status(200).json({ chat, messages });
+    //   }
+    //
+    //   console.error("Error initiating chat:", error);
+    //   res
+    //     .status(500)
+    //     .json({ error: "An error occurred while initiating the chat." });
+    // }
+});
+async function handleChatExists(args) {
+    let existingChats;
+    let chat;
+    let messages;
+    const { requestingUserId, targetUserId, pb, res } = args;
+    try {
+        // Check if a chat already exists between the two users
+        existingChats = await pb.collection("chats").getFullList({
+            // filter: `participants ?= '${requestingUserId}' && participants ?= '${targetUserId}'`,
+            filter: pb.filter("users.id ?= {:requestingUserId} && users.id ?= {:targetUserId}", { requestingUserId, targetUserId }),
+        });
+        console.log("=========Existing Chats:===============", existingChats);
+        if (existingChats) {
+            if (existingChats.length > 0) {
+                chat = existingChats[0];
+                // Fetch messages associated with the chat
+                messages = await pb.collection("messages").getFullList({
+                    filter: `chatId = '${chat.id}'`,
+                    sort: "created",
+                });
+            }
+            else {
+                // If no chat exists, create a new chat
+                chat = await pb.collection("chats").create({
+                    users: [requestingUserId, targetUserId],
+                }, { expand: "users" });
+                // Fetch messages associated with the chat after creating the chat (should be empty)
+                messages = await pb.collection("messages").getFullList({
+                    filter: `chatId = '${chat.id}'`,
+                    sort: "created",
+                });
+            }
+        }
+        console.info("Returning chat and messages", chat, messages);
+        res.status(201).json({ chat, messages });
+    }
+    catch (error) {
         res
             .status(500)
             .json({ error: "An error occurred while initiating the chat." });
     }
-}));
-exports.default = router;
+}
+async function handle404(args) {
+    const { requestingUserId, targetUserId, pb, res, error } = args;
+    // If no chat exists, create a new chat
+    console.error("No existing chat found. Create new chat:", error);
+    let chat;
+    chat = await pb.collection("chats").create({
+        users: [requestingUserId, targetUserId],
+    }, { expand: "users" });
+    // Fetch messages associated with the chat
+    const messages = await pb.collection("messages").getFullList({
+        filter: `chatId = '${chat.id}'`,
+        sort: "created",
+    });
+    res.status(200).json({ chat, messages });
+}
+export default router;
