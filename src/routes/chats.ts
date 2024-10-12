@@ -37,35 +37,6 @@ router.post(
         }
       }
     }
-    // } catch (error) {
-    //   let chat;
-    //   console.log(
-    //     "MADE IT TO THE CATCH BLOCK",
-    //     "Error instanceof ClientResponseError ????",
-    //     error instanceof ClientResponseError,
-    //   );
-    //   if (
-    //     error instanceof ClientResponseError &&
-    //     (error as ClientResponseError).status === 404
-    //   ) {
-    //     console.error("No existing chat found. Create new chat:", error);
-    //     chat = await pb.collection("chats").create({
-    //       participants: [requestingUserId, targetUserId],
-    //     });
-    //     // Fetch messages associated with the chat
-    //     const messages = await pb.collection("messages").getFullList({
-    //       filter: `chatId = '${chat.id}'`,
-    //       sort: "created",
-    //     });
-    //
-    //     res.status(200).json({ chat, messages });
-    //   }
-    //
-    //   console.error("Error initiating chat:", error);
-    //   res
-    //     .status(500)
-    //     .json({ error: "An error occurred while initiating the chat." });
-    // }
   },
 );
 
