@@ -17,16 +17,16 @@ const port = normalizePort(process.env.PORT || "3000");
 app.set("port", port);
 
 /**
- * Create HTTP server.
+ *
  */
-
-const server = http.createServer(app);
 
 /**
- * Listen on provided port, on all network interfaces.
+ *  Create HTTP server and listen on provided port, on all network interfaces.
  */
 
-server.listen(port);
+const server = app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
+});
 server.on("error", onError);
 server.on("listening", onListening);
 
