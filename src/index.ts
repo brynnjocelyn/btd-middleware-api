@@ -48,6 +48,11 @@ declare global {
 
 // Authentication Middleware
 app.use(async (req: Request, res: Response, next: NextFunction) => {
+  // Skip authentication for health-check route
+  if (req.path === "/health-check") {
+    return next();
+  }
+
   console.log("Authenticating user attempt...");
   // Grab the token from the request header
   console.log(
