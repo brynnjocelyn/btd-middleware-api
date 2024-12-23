@@ -53,6 +53,7 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
     return next();
   }
 
+  // Skip authentication for the root route
   if (req.path === "/") {
     return next();
   }
