@@ -53,6 +53,10 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
     return next();
   }
 
+  if (req.path === "/") {
+    return next();
+  }
+
   console.log("Authenticating user attempt...");
   // Grab the token from the request header
   console.log(
